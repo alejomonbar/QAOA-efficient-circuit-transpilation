@@ -9,7 +9,7 @@ Optimizing Quantum Approximate Optimization Algorithm (QAOA) circuit transpilati
 
 ---
 
-## 🧠 Overview
+## Overview
 
 Mapping QAOA circuits onto quantum hardware with limited qubit connectivity, such as superconducting-based quantum processing units (QPUs), necessitates efficient transpilation techniques. This project introduces and implements two strategies:
 
@@ -20,7 +20,7 @@ Mapping QAOA circuits onto quantum hardware with limited qubit connectivity, suc
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 - `PTC_utils.py`: Implements the Parity Twine Chain strategy.
 - `SWAP_utils.py`: Contains functions for SWAP network encoding.
