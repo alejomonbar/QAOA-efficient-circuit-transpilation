@@ -2,9 +2,6 @@ from qiskit import QuantumCircuit
 import numpy as np
 from copy import copy
 
-"For commercial use, please contact Parity Quantum Computing GmbH (info@parityqc.com)"
-"to obtain a license for the Parity Twine technology used in the circuits"
-
 def PTC_pairs(nq):
     list_2q = [nq * [0]]
     list_2q[0][0] = (0,)
