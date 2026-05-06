@@ -2,13 +2,36 @@ from docplex.mp.model import Model
 import numpy as np
 from collections import defaultdict
 from qiskit import QuantumCircuit
+from qiskit.circuit.library import CXGate
+from qiskit.circuit.library.standard_gates.equivalence_library import _sel
+from qiskit.transpiler import PassManager
+from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+from qiskit.transpiler.passes.routing.commuting_2q_gate_routing import (
+    SwapStrategy,
+    Commuting2qGateRouter,
+)
+from qiskit.transpiler.passes import (
+    BasisTranslator,
+    UnrollCustomDefinitions,
+    HighLevelSynthesis,
+    InverseCancellation,
+)
+
+from qopt_best_practices.sat_mapping import SATMapper
+from qaoa_training_pipeline.utils.problem_classes import MaxCut
+from qaoa_training_pipeline.utils.graph_utils import dict_to_graph, graph_to_dict
+
+from qopt_best_practices.transpilation.cost_layer import get_cost_layer
+from qopt_best_practices.transpilation.prepare_cost_layer import PrepareCostLayer
+from qopt_best_practices.transpilation.qaoa_construction_pass import QAOAConstructionPass
+from qopt_best_practices.transpilation.swap_cancellation_pass import SwapToFinalMapping
+import time
 
 def random_samples(num_samples, n_qubits):
     random_samples = defaultdict(int)
     for i in range(num_samples):
         random_samples["".join(str(i) for i in np.random.choice([0,1], n_qubits))] += 1
     return random_samples
-
 
 def WMaxCut(G):
     # MIS model as a QUBO problem
@@ -98,3 +121,55 @@ def total_cnots_depth(G, list_2q):
             return cnots, depth
         depth -= 1
     return cnots, depth
+
+
+def make_qaoa_circuit(
+    graph,
+    reps: int,
+    backend,
+    sat_timeout: int = 60,
+):
+    input_data = {"edge list": [{"nodes": [i, j], "weight":1} for i, j in graph.edges()]}
+    graph = dict_to_graph(input_data)
+    swap_strategy = SwapStrategy.from_line(range(graph.order()))
+    ti = time.time()
+    graph_sat = SATMapper(timeout=sat_timeout).remap_graph_with_sat(graph=graph, swap_strategy=swap_strategy)[0]
+    time_sat = time.time() - ti
+    
+    input_data = graph_to_dict(graph_sat)
+    cost_op = MaxCut().cost_operator(input_data)
+    num_qubits = cost_op.num_qubits
+
+    cost_layer = get_cost_layer(cost_op)
+
+    edge_coloring = {(idx, idx + 1): (idx + 1) % 2 for idx in range(num_qubits - 1)}
+
+    swap_strat = SwapStrategy.from_line(range(num_qubits))
+    
+    layout_info = {}
+    pre_init = PassManager(
+        [
+            PrepareCostLayer(),
+            Commuting2qGateRouter(swap_strat, edge_coloring),
+            SwapToFinalMapping(),  # Removes unnecessary SWAP gates that the end of the block
+            HighLevelSynthesis(basis_gates=["x", "cx", "sx", "rz", "id"]),
+            InverseCancellation(gates_to_cancel=[CXGate()]),
+        ]
+    )
+    post_init = PassManager(
+        [
+            UnrollCustomDefinitions(
+                _sel, basis_gates=backend.operation_names, min_qubits=3
+            ),
+            BasisTranslator(_sel, target_basis=backend.operation_names, min_qubits=3),
+        ]
+    )
+    
+    staged_pm = generate_preset_pass_manager(1, backend)
+    staged_pm.pre_init = pre_init
+    staged_pm.init = PassManager([QAOAConstructionPass(num_layers=reps)])
+    staged_pm.post_init = post_init
+    isa_circuit = staged_pm.run(cost_layer)
+    isa_circuit.metadata["layout_info"] = layout_info
+
+    return isa_circuit, time_sat

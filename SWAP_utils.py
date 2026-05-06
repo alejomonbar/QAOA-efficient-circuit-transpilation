@@ -8,7 +8,7 @@ def SWAP_pairs(nq):
     for i in range(1, nq):
         for j in range(i % 2, nq-1, 2):
             qubit_order[j], qubit_order[j+1] = qubit_order[j+1], qubit_order[j]
-        list_2q.append([(qubit_order[ii],qubit_order[ii+1]) for ii in range(i%2, nq-1, 2)])
+        list_2q.append([tuple(sorted([qubit_order[ii],qubit_order[ii+1]])) for ii in range(i%2, nq-1, 2)])
     return list_2q
 
 def qubit_order(nq, depth):

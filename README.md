@@ -28,6 +28,7 @@ Mapping QAOA circuits onto quantum hardware with limited qubit connectivity, suc
 - `utils.py`: Auxiliary functions supporting the main modules.
 - `example_transpilation.ipynb`: Demonstrates the transpilation process using the provided strategies.
 - `example_real_device.ipynb`: Applies the transpilation techniques to real quantum hardware scenarios.
+- `SAT_comparison.ipynb`: Compares the performance of different transpilation strategies using simulated annealing and SAT-based methods (SATMapper from qiskit).
 - `requirements.txt`: Lists the Python dependencies required to run the project.
 
 
